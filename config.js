@@ -1,8 +1,8 @@
 // 공개 설정만 포함합니다. 관리자 비밀번호, service_role/secret 키를 절대 넣지 마십시오.
 window.SURVEY_CONFIG = {
-  apiUrl: '', // 배포 후: https://<project-ref>.supabase.co/functions/v1/survey-api
-  supabaseUrl: '', // 관리자 인증에만 사용. 공개 가능한 프로젝트 URL
-  supabasePublishableKey: '', // 공개 가능한 sb_publishable_... (service_role 키 금지)
+  apiUrl: 'https://ieuekoeqnlxyntamvfio.supabase.co/functions/v1/survey-api', // 배포 후: https://<project-ref>.supabase.co/functions/v1/survey-api
+  supabaseUrl: 'https://ieuekoeqnlxyntamvfio.supabase.co', // 관리자 인증에만 사용. 공개 가능한 프로젝트 URL
+  supabasePublishableKey: 'sb_publishable_CpyNO_hLTT1NoCxB0i7IcQ_GH6WkHTr', // 공개 가능한 sb_publishable_... (service_role 키 금지)
   owner: '',       // 실제 조사책임기관
   contact: '',     // 담당자 이메일 또는 전화
   privacyNotice: '', // 승인된 개인정보·보존·파기·철회 안내문 전체

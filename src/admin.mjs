@@ -25,6 +25,10 @@ function dashboard(){const c=status?.control||{};
  <div class="mini-grid"><div class="metric"><strong>${status.invited??0}</strong><span>발급된 초대코드</span></div><div class="metric"><strong>${status.submitted??0}</strong><span>제출 완료</span></div><div class="metric"><strong>${c.is_open?'진행 중':'접수 중지'}</strong><span>조사 접수상태</span></div></div>
  ${c.is_open?'<div class="success">설문 접수가 열려 있습니다.</div>':'<div class="warning">접수 기본값은 닫힘입니다. 연구윤리·개인정보 고지를 확정한 뒤에만 DB 관리자 승인으로 열 수 있습니다.</div>'}${printErr()}
  <div class="buttons"><button class="btn outline" id="refresh">현황 새로고침</button><button class="btn" id="export">익명 CSV 다운로드</button></div></section>
+ <section class="panel"><h2>시험 접수</h2><p>저장된 시험 응답 <strong>${Number(status.pilotSubmitted??0)}건</strong></p>
+ <p class="help">시험 링크는 발급 후 2시간 동안 유효하며 한 번 제출할 수 있습니다. 초기화하면 시험 응답과 기존 시험 링크를 삭제합니다.</p>
+ <div class="buttons"><button class="btn" id="pilot-create">시험 설문 열기</button><button class="btn outline" id="pilot-reset">시험 응답 초기화</button></div>
+ <p id="pilot-result" role="status"></p></section>
  <section class="panel"><h2>조사 응답 현황</h2><div class="row"><div><h3>정책집단별</h3>${statTable(stats.groupCount,['① 기존 희망','② 조건부 선택','③ 탐색·미정','④ 비고려','⑤ 경계'])}</div><div><h3>학년별</h3>${statTable(stats.yearCount,['본과 1학년','본과 2학년','본과 3학년','본과 4학년'])}</div></div><h3>대학별</h3>${statTable(stats.schoolCount,SCHOOLS)}<h3>지원 조건별 완료응답</h3><div class="row"><div>${numberTable(stats.f4Count,['500'],'F4 학기당 장학금 (만 원)')}</div><div>${numberTable(stats.f5Count,['100'],'I2-1 월 정착지원금 (만 원)')}</div></div><p class="help">위 표는 각 지원 문항의 제출 완료 응답 수입니다.</p></section>
  <section class="panel"><h2>일회용 초대코드 발급</h2><p class="muted">초대코드는 한 번만 화면에 표시되며, DB에는 SHA-256 해시만 저장됩니다. 이메일·이름·학번은 시스템에 입력하지 않습니다.</p>
  <label>대상 대학<select class="field" id="school">${[...SCHOOLS,'unspecified'].map(x=>`<option>${esc(x)}</option>`).join('')}</select></label>
@@ -33,6 +37,32 @@ function dashboard(){const c=status?.control||{};
  <button class="btn" id="create">코드 생성 및 CSV 저장</button><div class="warning">생성 후 코드 목록을 배포 담당자에게 안전하게 전달하십시오. 유효 코드가 유출되면 다른 사람이 먼저 제출할 수 있습니다.</div></section>`;
  document.querySelector('#logout').onclick=()=>{jwt='';status=null;stats=null;invitationBatch=null;error='';login()};
  document.querySelector('#refresh').onclick=load;
+ document.querySelector('#pilot-create').onclick=async event=>{
+  const button=event.currentTarget;
+  button.disabled=true;
+  try{
+   const r=await api('admin_pilot_create',{},jwt);
+   const link=document.createElement('a');
+   link.href='./?pilot=1#'+encodeURIComponent(r.code);
+   link.target='_blank';
+   link.rel='noopener noreferrer';
+   link.textContent='새 탭에서 시험 설문 시작';
+   document.querySelector('#pilot-result').replaceChildren(link);
+  }catch(e){document.querySelector('#pilot-result').textContent=e.message}
+  finally{button.disabled=false}
+ };
+ document.querySelector('#pilot-reset').onclick=async event=>{
+  if(!confirm('시험 응답과 기존 시험 링크를 초기화하시겠습니까?'))return;
+  const button=event.currentTarget;
+  button.disabled=true;
+  try{
+   const r=await api('admin_pilot_reset',{confirm:true},jwt);
+   await load();
+   const result=document.querySelector('#pilot-result');
+   if(result)result.textContent=`시험 응답 ${Number(r.removed)}건을 초기화했습니다.`;
+  }catch(e){document.querySelector('#pilot-result').textContent=e.message}
+  finally{button.disabled=false}
+ };
  document.querySelector('#export').onclick=async()=>{try{const r=await api('admin_export',{},jwt);dl(r.csv,r.filename)}catch(e){alert('CSV 추출 실패: '+e.message)}};
  document.querySelector('#create').onclick=async()=>{
   try{const school=document.querySelector('#school').value,source=document.querySelector('#source').value,count=Number(document.querySelector('#count').value);

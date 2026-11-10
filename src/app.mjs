@@ -4,7 +4,7 @@ import {api} from './api.mjs';
 const root=document.querySelector('#app'),config=window.SURVEY_CONFIG||{};
 const previewOnly=config.demoOnly===true||new URLSearchParams(location.search).has('demo');
 let demo=previewOnly;
-let page='landing',code='',assignment=null,answers={},step=0,busy=false,error='';
+let page='landing',code='',publicEntry=false,assignment=null,answers={},step=0,busy=false,error='';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const keyAttr=(id)=>esc(id);
 function render(){
@@ -15,21 +15,47 @@ function render(){
  if(page==='declined')return declined();
 }
 const alertErr=()=>error?`<div class="error" role="alert">${esc(error)}</div>`:'';
+function browserCode(){
+ const key='vet-survey-browser-'+VERSION;
+ try{
+  const stored=localStorage.getItem(key);
+  if(stored&&/^[0-9A-F]{32}$/.test(stored))return stored;
+  const token=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('').toUpperCase();
+  localStorage.setItem(key,token);
+  return token;
+ }catch{
+  throw new Error('응답을 제출하려면 브라우저의 사이트 데이터 저장을 허용해 주십시오.');
+ }
+}
+async function startSurvey(codeForEntry,isPublic){
+ try{
+  setBusy(true);
+  const token=isPublic?browserCode():codeForEntry;
+  if(!token)throw new Error('일회용 초대코드를 입력해 주십시오.');
+  const result=await api(isPublic?'public_start':'start',{code:token});
+  beginConsent(result.assignment,token,isPublic);
+ }catch(e){
+  error=e.message;
+  render();
+ }finally{busy=false;}
+}
 function landing(){
  const prod=!previewOnly&&!!config.approvedForRecruitment&&!!config.apiUrl;
  root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 — 응답은 서버에 저장되지 않습니다</div>':''}<section class="panel hero"><span class="eyebrow">대한민국 10개 수의과대학 본과 재학생</span><h1>전국 수의대생의 농장동물 진로 및 취업의향 조사</h1><p>반려동물 임상 등 다른 진로를 희망하는 학생도 참여할 수 있습니다. 설문은 첫 진로희망, 현장경험, 근무형태 및 정책지원조건을 파악하기 위한 것입니다.</p><p class="muted">응답한 내용은 통계 및 학술 연구용으로 활용될 수 있으며, 가상 일자리·장학금·정착지원금은 실제 시행을 보장하지 않습니다.</p></section>
- <section class="panel"><h2>설문 시작</h2>${prod?'<p>배부받은 일회용 초대코드를 입력해 주십시오.</p>':previewOnly?'<p>체험 모드에서 설문과 자동 분기를 확인할 수 있습니다.</p>':'<div class="warning">현재 운영자의 연구윤리·개인정보 안내 및 서버 설정이 완료되지 않아 실제 응답 수집이 비활성화되어 있습니다. 체험 모드에서만 화면을 확인할 수 있습니다.</div>'}
- ${prod?'<input class="field" id="code" autocomplete="off" spellcheck="false" maxlength="48" placeholder="일회용 초대코드">':''}${alertErr()}
- <div class="buttons">${prod?'<button class="btn" id="start">코드 확인 후 시작</button>':''}<button class="btn outline" id="demo">체험 모드로 확인</button></div><p class="help">학생용 초대코드는 개인정보와 설문응답을 직접 연결하지 않는 방식으로 관리합니다.</p></section>`;
+ <section class="panel"><h2>설문 시작</h2>${prod?'<p>설문 참여를 누르면 연구 참여 안내와 동의 화면으로 이동합니다.</p>':previewOnly?'<p>체험 모드에서 설문과 자동 분기를 확인할 수 있습니다.</p>':'<div class="warning">현재 실제 응답 접수는 닫혀 있습니다. 체험 모드에서 설문 화면을 확인할 수 있습니다.</div>'}
+ ${alertErr()}
+ <div class="buttons">${prod?'<button class="btn" id="start">설문 참여</button>':''}<button class="btn outline" id="demo">체험 모드로 확인</button></div>
+ ${prod?'<p class="help">같은 브라우저의 중복 제출을 막기 위해 브라우저에 무작위 참여 식별값을 저장합니다.</p><details><summary>초대코드를 받은 경우</summary><input class="field" id="code" aria-label="일회용 초대코드" autocomplete="off" spellcheck="false" maxlength="48" placeholder="일회용 초대코드"><button class="btn outline" id="start-invite">코드 확인 후 시작</button></details>':''}</section>`;
  document.querySelector('#demo').onclick=()=>beginConsent(demoAssignment());
- if(prod){document.querySelector('#start').onclick=async()=>{
-  const v=document.querySelector('#code').value.trim();if(!v){error='일회용 초대코드를 입력해 주십시오.';render();return;}
-  try{setBusy(true);const r=await api('start',{code:v});beginConsent(r.assignment,v)}catch(e){error=e.message;render()}finally{busy=false;}
- }}
+ if(prod){
+  document.querySelector('#start').onclick=()=>startSurvey('',true);
+  document.querySelector('#start-invite').onclick=()=>startSurvey(document.querySelector('#code').value.trim(),false);
+ }
 }
-function beginConsent(nextAssignment,inviteCode=''){
+function beginConsent(nextAssignment,inviteCode='',isPublic=false){
  demo=!inviteCode;
  code=inviteCode;
+ publicEntry=isPublic;
  assignment=nextAssignment;
  answers={};
  error='';
@@ -54,7 +80,7 @@ function survey(){
  document.querySelector('#next').onclick=async()=>{const issues=validatePage(current.key,answers);if(issues.length){const {id,message}=issues[0];error=message;render();document.querySelector(`[data-question="${CSS.escape(id)}"]`)?.scrollIntoView({behavior:'smooth'});return;}error='';if(step<groups.length-1){step++;render();scrollTo({top:0,behavior:'instant'});return;}
  const all=validateAll(answers);if(all.length){error=`아직 응답하지 않은 문항이 있습니다: ${all.map(x=>x.id).slice(0,5).join(', ')}`;render();return;}
  if(demo){page='finished';render();return;}
- try{setBusy(true);await api('submit',{code,consent:true,version:VERSION,answers:sanitizeAnswers(answers)});page='finished';code='';answers={};render();}catch(e){busy=false;error=e.message;render();}
+ try{setBusy(true);await api(publicEntry?'public_submit':'submit',{code:publicEntry?browserCode():code,consent:true,version:VERSION,answers:sanitizeAnswers(answers)});page='finished';code='';answers={};render();}catch(e){busy=false;error=e.message;render();}
  };
  root.querySelector('#questions').addEventListener('change',onChange);
  root.querySelector('#questions').addEventListener('input',e=>{if(e.target.matches('textarea,input[type=text]'))answers[e.target.dataset.id]=e.target.value;});

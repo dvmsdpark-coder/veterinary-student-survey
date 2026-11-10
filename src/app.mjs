@@ -3,6 +3,9 @@ import {getGroups,activeQuestions,validatePage,validateAll,sanitizeAnswers,demoA
 import {api} from './api.mjs';
 const root=document.querySelector('#app'),config=window.SURVEY_CONFIG||{};
 const previewOnly=config.demoOnly===true||new URLSearchParams(location.search).has('demo');
+const pilotMode=!previewOnly&&new URLSearchParams(location.search).has('pilot');
+const pilotCode=pilotMode?location.hash.slice(1):'';
+if(pilotCode)history.replaceState(null,'',location.pathname+location.search);
 let demo=previewOnly;
 let page='landing',code='',publicEntry=false,assignment=null,answers={},step=0,busy=false,error='';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -32,7 +35,7 @@ async function startSurvey(codeForEntry,isPublic){
   setBusy(true);
   const token=isPublic?browserCode():codeForEntry;
   if(!token)throw new Error('일회용 초대코드를 입력해 주십시오.');
-  const result=await api(isPublic?'public_start':'start',{code:token});
+  const result=await api(pilotMode?'pilot_start':isPublic?'public_start':'start',{code:token});
   beginConsent(result.assignment,token,isPublic);
  }catch(e){
   error=e.message;
@@ -40,6 +43,12 @@ async function startSurvey(codeForEntry,isPublic){
  }finally{busy=false;}
 }
 function landing(){
+ if(pilotMode){
+  root.innerHTML=`<section class="panel hero"><h1>관리자 시험 설문</h1><p>가상 응답으로 제출과 저장을 시험합니다. 제출 결과는 관리자 화면의 시험 응답 수에서 확인할 수 있습니다.</p>${alertErr()}
+  <div class="buttons">${pilotCode?'<button id="pilot-start" class="btn">시험 설문 시작</button>':'<p>관리자 화면에서 새 시험 링크를 열어 주십시오.</p>'}<a class="btn outline" href="./admin.html">관리자 화면</a></div></section>`;
+  if(pilotCode)document.querySelector('#pilot-start').onclick=()=>startSurvey(pilotCode,false);
+  return;
+ }
  const prod=!previewOnly&&!!config.approvedForRecruitment&&!!config.apiUrl;
  root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 — 응답은 서버에 저장되지 않습니다</div>':''}<section class="panel hero"><span class="eyebrow">대한민국 10개 수의과대학 본과 재학생</span><h1>전국 수의대생의 농장동물 진로 및 취업의향 조사</h1><p>반려동물 임상 등 다른 진로를 희망하는 학생도 참여할 수 있습니다. 설문은 첫 진로희망, 현장경험, 근무형태 및 정책지원조건을 파악하기 위한 것입니다.</p><p class="muted">응답한 내용은 통계 및 학술 연구용으로 활용될 수 있으며, 가상 일자리·장학금·정착지원금은 실제 시행을 보장하지 않습니다.</p></section>
  <section class="panel"><h2>설문 시작</h2>${prod?'<p>설문 참여를 누르면 연구 참여 안내와 동의 화면으로 이동합니다.</p>':previewOnly?'<p>체험 모드에서 설문과 자동 분기를 확인할 수 있습니다.</p>':'<div class="warning">현재 실제 응답 접수는 닫혀 있습니다. 체험 모드에서 설문 화면을 확인할 수 있습니다.</div>'}
@@ -64,7 +73,7 @@ function beginConsent(nextAssignment,inviteCode='',isPublic=false){
 }
 function consent(){
  root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 · 실제 응답 저장 안 함</div>':''}<section class="panel"><span class="eyebrow">연구 참여 안내</span><h1>조사 목적과 참여 동의</h1><p>본 조사는 전국 수의과대학 본과 재학생의 첫 실무진로, 농장동물 진료 관련 경험, 일자리 선호 및 근무조건을 파악하여 지역 농장동물 진료인력 육성과 진료체계 개선 정책의 기초자료로 활용하고자 합니다.</p><p>반려동물 임상 등 다른 진로를 희망하거나 농장동물 진료에 관심이 없는 학생도 응답할 수 있습니다. 정답은 없으며, 가상 일자리나 지원사업은 실제 시행 또는 채용을 약속하는 것이 아닙니다. 참여는 자발적입니다.</p><p class="help">농장동물 진료·건강관리: 소·돼지·가금 등의 진단·치료, 예방·번식관리, 농장 단위 건강관리와 축산기업·계열화사업자 소속 현장수의사 업무를 포함합니다.</p>
- ${demo?'<div class="warning">아래 안내는 기능 확인용 예시입니다. 실제 연구동의서를 대체하지 않습니다.</div>':`<div class="notice"><strong>조사책임기관</strong> ${esc(config.owner)}<br><strong>문의</strong> ${esc(config.contact)}<br><strong>개인정보·철회·보존·파기 안내</strong><br>${esc(config.privacyNotice)}<br><strong>연구윤리</strong><br>${esc(config.ethicsNotice)}</div>`}
+ ${pilotMode?'<div class="warning">관리자 시험입니다. 가상 응답을 입력해 주십시오.</div>':demo?'<div class="warning">아래 안내는 기능 확인용 예시입니다. 실제 연구동의서를 대체하지 않습니다.</div>':`<div class="notice"><strong>조사책임기관</strong> ${esc(config.owner)}<br><strong>문의</strong> ${esc(config.contact)}<br><strong>개인정보·철회·보존·파기 안내</strong><br>${esc(config.privacyNotice)}<br><strong>연구윤리</strong><br>${esc(config.ethicsNotice)}</div>`}
  <div class="question"><span class="question-title">위 안내를 읽고 자발적으로 참여하는 데 동의하십니까?</span><div class="options single-column"><label class="option"><input type="radio" name="consent" value="yes">동의함</label><label class="option"><input type="radio" name="consent" value="no">동의하지 않음</label></div></div>${alertErr()}
  <div class="buttons"><button id="back" class="btn outline">이전</button><button id="consentNext" class="btn">계속</button></div></section>`;
  document.querySelector('#back').onclick=()=>{demo=previewOnly;error='';page='landing';render()};
@@ -80,7 +89,7 @@ function survey(){
  document.querySelector('#next').onclick=async()=>{const issues=validatePage(current.key,answers);if(issues.length){const {id,message}=issues[0];error=message;render();document.querySelector(`[data-question="${CSS.escape(id)}"]`)?.scrollIntoView({behavior:'smooth'});return;}error='';if(step<groups.length-1){step++;render();scrollTo({top:0,behavior:'instant'});return;}
  const all=validateAll(answers);if(all.length){error=`아직 응답하지 않은 문항이 있습니다: ${all.map(x=>x.id).slice(0,5).join(', ')}`;render();return;}
  if(demo){page='finished';render();return;}
- try{setBusy(true);await api(publicEntry?'public_submit':'submit',{code:publicEntry?browserCode():code,consent:true,version:VERSION,answers:sanitizeAnswers(answers)});page='finished';code='';answers={};render();}catch(e){busy=false;error=e.message;render();}
+ try{setBusy(true);await api(pilotMode?'pilot_submit':publicEntry?'public_submit':'submit',{code:publicEntry?browserCode():code,consent:true,version:VERSION,answers:sanitizeAnswers(answers)});page='finished';code='';answers={};render();}catch(e){busy=false;error=e.message;render();}
  };
  root.querySelector('#questions').addEventListener('change',onChange);
  root.querySelector('#questions').addEventListener('input',e=>{if(e.target.matches('textarea,input[type=text]'))answers[e.target.dataset.id]=e.target.value;});
@@ -119,7 +128,13 @@ function onChange(e){const el=e.target,id=el.dataset.id;if(!id)return;
  // B1의 '기타' 세부기입란은 해당 선택지를 고른 즉시 표시하거나 숨깁니다.
  if(id==='B1'){const y=window.scrollY;render();window.scrollTo(0,y);}
 }
-function finished(){root.innerHTML=`<section class="panel hero"><h1>${demo?'설문 화면 체험 완료':'설문 제출 완료'}</h1><p>${demo?'체험 과정에서 입력한 응답은 서버에 저장되지 않았습니다.':'응답이 정상적으로 접수되었습니다. 참여해 주셔서 감사합니다.'}</p><div class="buttons"><a class="btn outline" href="">처음으로</a></div></section>`;}
+function finished(){
+ if(pilotMode){
+  root.innerHTML='<section class="panel hero"><h1>시험 응답 저장 완료</h1><p>관리자 화면을 새로고침해 시험 응답 수를 확인해 주십시오.</p><div class="buttons"><a class="btn outline" href="./admin.html">관리자 화면</a></div></section>';
+  return;
+ }
+ root.innerHTML=`<section class="panel hero"><h1>${demo?'설문 화면 체험 완료':'설문 제출 완료'}</h1><p>${demo?'체험 과정에서 입력한 응답은 서버에 저장되지 않았습니다.':'응답이 정상적으로 접수되었습니다. 참여해 주셔서 감사합니다.'}</p><div class="buttons"><a class="btn outline" href="">처음으로</a></div></section>`;
+}
 function declined(){root.innerHTML=`<section class="panel"><h1>참여하지 않음</h1><p>동의하지 않으셔도 불이익은 없습니다. 설문은 종료되었습니다.</p><a href="" class="btn outline">처음으로</a></section>`;code='';answers={};}
 function setBusy(v){busy=v;document.querySelectorAll('button').forEach(x=>x.disabled=v);}
 render();

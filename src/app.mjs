@@ -96,7 +96,7 @@ function survey(){
  };
  root.querySelector('#questions').addEventListener('change',onChange);
  root.querySelector('#questions').addEventListener('input',e=>{if(e.target.matches('textarea,input[type=text]'))answers[e.target.dataset.id]=e.target.value;});
- root.querySelectorAll('input[name=raffle-consent]').forEach(el=>el.onchange=()=>{raffleConsent=el.value;if(el.value!=='yes')rafflePhone='';render();});
+ root.querySelectorAll('input[name=raffle-consent]').forEach(el=>el.onchange=()=>{raffleConsent=el.value;if(el.value!=='yes')rafflePhone='';error='';render();});
  const phone=root.querySelector('#raffle-phone');if(phone)phone.oninput=()=>{rafflePhone=phone.value;};
 }
 function renderRaffle(){

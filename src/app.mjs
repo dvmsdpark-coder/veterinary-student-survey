@@ -55,11 +55,10 @@ function landing(){
  <section class="panel"><h2>설문 시작</h2>${prod?'<p>설문 참여를 누르면 연구 참여 안내와 동의 화면으로 이동합니다.</p>':previewOnly?'<p>체험 모드에서 설문과 자동 분기를 확인할 수 있습니다.</p>':'<div class="warning">현재 실제 응답 접수는 닫혀 있습니다. 체험 모드에서 설문 화면을 확인할 수 있습니다.</div>'}
  ${alertErr()}
  <div class="buttons">${prod?'<button class="btn" id="start">설문 참여</button>':''}<button class="btn outline" id="demo">체험 모드로 확인</button></div>
- ${prod?'<p class="help">같은 브라우저의 중복 제출을 막기 위해 브라우저에 무작위 참여 식별값을 저장합니다.</p><details><summary>초대코드를 받은 경우</summary><input class="field" id="code" aria-label="일회용 초대코드" autocomplete="off" spellcheck="false" maxlength="48" placeholder="일회용 초대코드"><button class="btn outline" id="start-invite">코드 확인 후 시작</button></details>':''}</section>`;
+ ${prod?'<p class="help">같은 브라우저의 중복 제출을 막기 위해 브라우저에 무작위 참여 식별값을 저장합니다.</p>':''}</section>`;
  document.querySelector('#demo').onclick=()=>beginConsent(demoAssignment());
  if(prod){
   document.querySelector('#start').onclick=()=>startSurvey('',true);
-  document.querySelector('#start-invite').onclick=()=>startSurvey(document.querySelector('#code').value.trim(),false);
  }
 }
 function beginConsent(nextAssignment,inviteCode='',isPublic=false){

@@ -50,13 +50,13 @@ function landing(){
   if(pilotCode)document.querySelector('#pilot-start').onclick=()=>startSurvey(pilotCode,false);
   return;
  }
- const prod=!previewOnly&&!!config.approvedForRecruitment&&!!config.apiUrl;
- root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 — 응답은 서버에 저장되지 않습니다</div>':''}<section class="panel hero"><span class="eyebrow">대한민국 10개 수의과대학 본과 재학생</span><h1>전국 수의대생의 농장동물 진로 및 취업의향 조사</h1><p>반려동물 임상 등 다른 진로를 희망하는 학생도 참여할 수 있습니다. 설문은 첫 진로희망, 현장경험, 근무형태 및 정책지원조건을 파악하기 위한 것입니다.</p><p class="muted">응답한 내용은 통계 및 학술 연구용으로 활용될 수 있으며, 가상 일자리·장학금·정착지원금은 실제 시행을 보장하지 않습니다.</p></section>
- <section class="panel"><h2>설문 시작</h2>${prod?'<p>설문 참여를 누르면 연구 참여 안내와 동의 화면으로 이동합니다.</p>':previewOnly?'<p>체험 모드에서 설문과 자동 분기를 확인할 수 있습니다.</p>':'<div class="warning">현재 실제 응답 접수는 닫혀 있습니다. 체험 모드에서 설문 화면을 확인할 수 있습니다.</div>'}
+ const prod=!previewOnly&&!!(config.collectionEnabled??config.approvedForRecruitment)&&!!config.apiUrl;
+ root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 — 응답은 서버에 저장되지 않습니다</div>':''}<section class="panel hero"><span class="eyebrow">대한민국 10개 수의과대학 본과 재학생</span><h1>전국 수의대생의 농장동물 진로 및 취업의향 조사</h1><p>반려동물 임상 등 다른 진로를 희망하는 학생도 참여할 수 있습니다. 설문은 첫 진로희망, 현장경험, 근무형태 및 정책지원조건을 파악하기 위한 것입니다.</p><p class="muted">응답한 내용은 농장동물 진료인력 관련 정책 설계의 기초자료로 활용되며, 가상 일자리·장학금·정착지원금은 실제 시행을 보장하지 않습니다.</p></section>
+ <section class="panel"><h2>설문 시작</h2>${prod?'<p>설문 참여를 누르면 설문 참여 안내와 동의 화면으로 이동합니다.</p>':previewOnly?'<p>체험 모드에서 설문과 자동 분기를 확인할 수 있습니다.</p>':'<div class="warning">현재 실제 응답 접수는 닫혀 있습니다. 체험 모드에서 설문 화면을 확인할 수 있습니다.</div>'}
  ${alertErr()}
- <div class="buttons">${prod?'<button class="btn" id="start">설문 참여</button>':''}<button class="btn outline" id="demo">체험 모드로 확인</button></div>
+ <div class="buttons">${prod?'<button class="btn" id="start">설문 참여</button>':'<button class="btn outline" id="demo">체험 모드로 확인</button>'}</div>
  ${prod?'<p class="help">같은 브라우저의 중복 제출을 막기 위해 브라우저에 무작위 참여 식별값을 저장합니다.</p>':''}</section>`;
- document.querySelector('#demo').onclick=()=>beginConsent(demoAssignment());
+ const demoButton=document.querySelector('#demo');if(demoButton)demoButton.onclick=()=>beginConsent(demoAssignment());
  if(prod){
   document.querySelector('#start').onclick=()=>startSurvey('',true);
  }
@@ -73,8 +73,8 @@ function beginConsent(nextAssignment,inviteCode='',isPublic=false){
  render();
 }
 function consent(){
- root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 · 실제 응답 저장 안 함</div>':''}<section class="panel"><span class="eyebrow">연구 참여 안내</span><h1>조사 목적과 참여 동의</h1><p>본 조사는 전국 수의과대학 본과 재학생의 첫 실무진로, 농장동물 진료 관련 경험, 일자리 선호 및 근무조건을 파악하여 지역 농장동물 진료인력 육성과 진료체계 개선 정책의 기초자료로 활용하고자 합니다.</p><p>반려동물 임상 등 다른 진로를 희망하거나 농장동물 진료에 관심이 없는 학생도 응답할 수 있습니다. 정답은 없으며, 가상 일자리나 지원사업은 실제 시행 또는 채용을 약속하는 것이 아닙니다. 참여는 자발적입니다.</p><p class="help">농장동물 진료·건강관리: 소·돼지·가금 등의 진단·치료, 예방·번식관리, 농장 단위 건강관리와 축산기업·계열화사업자 소속 현장수의사 업무를 포함합니다.</p>
- ${pilotMode?'<div class="warning">관리자 시험입니다. 가상 응답을 입력해 주십시오.</div>':demo?'<div class="warning">아래 안내는 기능 확인용 예시입니다. 실제 연구동의서를 대체하지 않습니다.</div>':`<div class="notice"><strong>조사책임기관</strong> ${esc(config.owner)}<br><strong>문의</strong> ${esc(config.contact)}<br><strong>개인정보·철회·보존·파기 안내</strong><br>${esc(config.privacyNotice)}<br><strong>연구윤리</strong><br>${esc(config.ethicsNotice)}</div>`}
+ root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 · 실제 응답 저장 안 함</div>':''}<section class="panel"><span class="eyebrow">설문 참여 안내</span><h1>조사 목적과 참여 동의</h1><p>본 조사는 전국 수의과대학 본과 재학생의 첫 실무진로, 농장동물 진료 관련 경험, 일자리 선호 및 근무조건을 파악하여 지역 농장동물 진료인력 육성과 진료체계 개선 정책의 기초자료로 활용하고자 합니다.</p><p>반려동물 임상 등 다른 진로를 희망하거나 농장동물 진료에 관심이 없는 학생도 응답할 수 있습니다. 정답은 없으며, 가상 일자리나 지원사업은 실제 시행 또는 채용을 약속하는 것이 아닙니다. 참여는 자발적입니다.</p><p class="help">농장동물 진료·건강관리: 소·돼지·가금 등의 진단·치료, 예방·번식관리, 농장 단위 건강관리와 축산기업·계열화사업자 소속 현장수의사 업무를 포함합니다.</p>
+ ${pilotMode?'<div class="warning">관리자 시험입니다. 가상 응답을 입력해 주십시오.</div>':demo?'<div class="warning">아래 안내는 기능 확인용 예시입니다. 실제 조사 참여 동의를 대체하지 않습니다.</div>':`<div class="notice"><strong>조사책임기관</strong> ${esc(config.owner)}${config.contact?`<br><strong>문의</strong> ${esc(config.contact)}`:""}<br><strong>쿠폰 추첨용 개인정보 수집 안내</strong><br>${esc(config.privacyNotice)}${config.ethicsNotice?`<br><strong>연구윤리</strong><br>${esc(config.ethicsNotice)}`:""}</div>`}
  <div class="question"><span class="question-title">위 안내를 읽고 자발적으로 참여하는 데 동의하십니까?</span><div class="options single-column"><label class="option"><input type="radio" name="consent" value="yes">동의함</label><label class="option"><input type="radio" name="consent" value="no">동의하지 않음</label></div></div>${alertErr()}
  <div class="buttons"><button id="back" class="btn outline">이전</button><button id="consentNext" class="btn">계속</button></div></section>`;
  document.querySelector('#back').onclick=()=>{demo=previewOnly;error='';page='landing';render()};

@@ -25,6 +25,7 @@ function dashboard(){const c=status?.control||{};
  <div class="mini-grid"><div class="metric"><strong>${status.invited??0}</strong><span>발급된 초대코드</span></div><div class="metric"><strong>${status.submitted??0}</strong><span>제출 완료</span></div><div class="metric"><strong>${c.is_open?'진행 중':'접수 중지'}</strong><span>조사 접수상태</span></div></div>
  ${c.is_open?'<div class="success">설문 접수가 열려 있습니다.</div>':'<div class="warning">접수 기본값은 닫힘입니다. 연구윤리·개인정보 고지를 확정한 뒤에만 DB 관리자 승인으로 열 수 있습니다.</div>'}${printErr()}
  <div class="buttons"><button class="btn outline" id="refresh">현황 새로고침</button><button class="btn" id="export">익명 CSV 다운로드</button></div></section>
+ <section class="panel"><h2>커피 쿠폰 연락처</h2><p>대한수의사회에서 추첨 및 쿠폰 발송에 사용합니다. 쿠폰 발송 완료 후 즉시 파기해 주십시오.</p><div class="buttons"><button class="btn" id="raffle-export">쿠폰 연락처 CSV 다운로드</button><button class="btn outline" id="raffle-purge">쿠폰 발송 완료 · 연락처 파기</button></div><p class="help">번호는 설문 분석 CSV에 포함되지 않습니다. 파기 버튼은 서버에 저장된 연락처를 삭제합니다. 내려받은 CSV와 발송에 사용한 파일도 즉시 삭제해 주십시오.</p><p id="raffle-result" role="status"></p></section>
  <section class="panel"><h2>시험 접수</h2><p>저장된 시험 응답 <strong>${Number(status.pilotSubmitted??0)}건</strong></p>
  <p class="help">시험 링크는 발급 후 2시간 동안 유효하며 한 번 제출할 수 있습니다. 초기화하면 시험 응답과 기존 시험 링크를 삭제합니다.</p>
  <div class="buttons"><button class="btn" id="pilot-create">시험 설문 열기</button><button class="btn outline" id="pilot-reset">시험 응답 초기화</button></div>
@@ -37,6 +38,12 @@ function dashboard(){const c=status?.control||{};
  <button class="btn" id="create">코드 생성 및 CSV 저장</button><div class="warning">생성 후 코드 목록을 배포 담당자에게 안전하게 전달하십시오. 유효 코드가 유출되면 다른 사람이 먼저 제출할 수 있습니다.</div></section>`;
  document.querySelector('#logout').onclick=()=>{jwt='';status=null;stats=null;invitationBatch=null;error='';login()};
  document.querySelector('#refresh').onclick=load;
+ document.querySelector('#raffle-export').onclick=async()=>{try{const r=await api('admin_raffle_export',{},jwt);dl(r.csv,r.filename);document.querySelector('#raffle-result').textContent=`추첨 신청 ${r.count}건을 내려받았습니다. 같은 번호의 중복 응모 여부를 확인해 주십시오.`;}catch(e){document.querySelector('#raffle-result').textContent=e.message}};
+ document.querySelector('#raffle-purge').onclick=async event=>{
+  if(!confirm('쿠폰 발송을 완료하셨습니까? 저장된 쿠폰 연락처를 모두 영구 삭제합니다. 복구할 수 없습니다.'))return;
+  const button=event.currentTarget;button.disabled=true;
+  try{const r=await api('admin_raffle_purge',{confirm:true},jwt);document.querySelector('#raffle-result').textContent=`연락처 ${r.removed}건을 파기했습니다. 내려받은 파일도 삭제해 주십시오.`;}catch(e){document.querySelector('#raffle-result').textContent=e.message}finally{button.disabled=false}
+ };
  document.querySelector('#pilot-create').onclick=async event=>{
   const button=event.currentTarget;
   button.disabled=true;

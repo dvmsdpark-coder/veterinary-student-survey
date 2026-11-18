@@ -1,5 +1,6 @@
 import {SCHOOLS,VERSION} from './survey.mjs';
 import {api} from './api.mjs';
+import {surveyCsv,couponCsv,codebookCsv} from './exports.mjs';
 const root=document.querySelector('#admin'),cfg=window.SURVEY_CONFIG||{};
 let jwt='',error='',status=null,stats=null;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,7 +25,7 @@ function dashboard(){const c=status?.control||{};
  root.innerHTML=`<section class="panel"><div class="row"><div><span class="eyebrow">관리자 · ${esc(VERSION)}</span><h1>조사 운영 현황</h1></div><button class="btn outline" id="logout">로그아웃</button></div>
  <div class="mini-grid"><div class="metric"><strong>${status.submitted??0}</strong><span>제출 완료</span></div><div class="metric"><strong>${c.is_open?'진행 중':'접수 중지'}</strong><span>조사 접수상태</span></div></div>
  ${c.is_open?'<div class="success">설문 접수가 열려 있습니다.</div>':'<div class="warning">현재 설문 접수가 중지되어 있습니다.</div>'}${printErr()}
- <div class="buttons"><button class="btn outline" id="refresh">현황 새로고침</button><button class="btn" id="export">전체 설문 결과 CSV 다운로드</button></div></section>
+ <div class="buttons"><button class="btn outline" id="refresh">현황 새로고침</button><button class="btn" id="export">전체 설문 결과 CSV · 보기 내용</button><button class="btn outline" id="export-codes">분석용 CSV · 숫자 코드</button><button class="btn outline" id="codebook">문항·코드 해석표 CSV</button></div><p class="help">보기 내용 파일에는 선택한 보기의 문구가 표시됩니다. 분석용 파일은 숫자 코드를 유지합니다. 모든 문항 열은 고정되며, 분기 미해당과 선택문항 무응답은 빈칸입니다.</p></section>
  <section class="panel"><h2>커피 쿠폰 연락처</h2><p>대한수의사회에서 추첨 및 쿠폰 발송에 사용합니다. 쿠폰 발송 완료 후 즉시 파기해 주십시오.</p><div class="buttons"><button class="btn" id="raffle-export">쿠폰 연락처 CSV 다운로드</button><button class="btn outline" id="raffle-purge">쿠폰 발송 완료 · 연락처 파기</button></div><p class="help">번호는 설문 분석 CSV에 포함되지 않습니다. 파기 버튼은 서버에 저장된 연락처를 삭제합니다. 내려받은 CSV와 발송에 사용한 파일도 즉시 삭제해 주십시오.</p><p id="raffle-result" role="status"></p></section>
  <section class="panel"><h2>시험 접수</h2><p>저장된 시험 응답 <strong>${Number(status.pilotSubmitted??0)}건</strong></p>
  <p class="help">시험 링크는 발급 후 2시간 동안 유효하며 한 번 제출할 수 있습니다. 초기화하면 시험 응답과 기존 시험 링크를 삭제합니다.</p>
@@ -38,7 +39,7 @@ function dashboard(){const c=status?.control||{};
   const field=document.querySelector('#survey-link'),result=document.querySelector('#copy-result');
   try{await navigator.clipboard.writeText(field.value);result.textContent='학생용 설문 링크를 복사했습니다.';}catch{field.focus();field.select();result.textContent='위 주소를 선택했습니다. 복사해 배포해 주십시오.';}
  };
- document.querySelector('#raffle-export').onclick=async()=>{try{const r=await api('admin_raffle_export',{},jwt);dl(r.csv,r.filename);document.querySelector('#raffle-result').textContent=`추첨 신청 ${r.count}건을 내려받았습니다. 같은 번호의 중복 응모 여부를 확인해 주십시오.`;}catch(e){document.querySelector('#raffle-result').textContent=e.message}};
+ document.querySelector('#raffle-export').onclick=async()=>{try{const r=await api('admin_raffle_export',{},jwt);dl(couponCsv(r.csv),'coffee_coupon_contacts_formatted.csv');document.querySelector('#raffle-result').textContent=`추첨 신청 ${r.count}건을 내려받았습니다. 같은 번호의 중복 응모 여부를 확인해 주십시오.`;}catch(e){document.querySelector('#raffle-result').textContent=e.message}};
  document.querySelector('#raffle-purge').onclick=async event=>{
   if(!confirm('쿠폰 발송을 완료하셨습니까? 저장된 쿠폰 연락처를 모두 영구 삭제합니다. 복구할 수 없습니다.'))return;
   const button=event.currentTarget;button.disabled=true;
@@ -70,7 +71,9 @@ function dashboard(){const c=status?.control||{};
   }catch(e){document.querySelector('#pilot-result').textContent=e.message}
   finally{button.disabled=false}
  };
- document.querySelector('#export').onclick=async()=>{try{const r=await api('admin_export',{},jwt);dl(r.csv,r.filename)}catch(e){alert('CSV 추출 실패: '+e.message)}};
+ document.querySelector('#export').onclick=async()=>{try{const r=await api('admin_export',{},jwt);dl(surveyCsv(r.csv),`survey_${VERSION}_readable.csv`)}catch(e){alert('CSV 추출 실패: '+e.message)}};
+ document.querySelector('#export-codes').onclick=async()=>{try{const r=await api('admin_export',{},jwt);dl(surveyCsv(r.csv,false),`survey_${VERSION}_analysis.csv`)}catch(e){alert('CSV 추출 실패: '+e.message)}};
+ document.querySelector('#codebook').onclick=()=>dl(codebookCsv(),`survey_${VERSION}_codebook.csv`);
 
 }
 function statTable(obj={},labels=[]){return `<div class="table-wrap"><table><thead><tr><th>구분</th><th>응답 수</th></tr></thead><tbody>${labels.map((label,i)=>`<tr><td>${esc(label)}</td><td>${Number(obj[String(i+1)]||0)}</td></tr>`).join('')}</tbody></table></div>`}

@@ -8,6 +8,7 @@ const pilotCode=pilotMode?location.hash.slice(1):'';
 if(pilotCode)history.replaceState(null,'',location.pathname+location.search);
 let demo=previewOnly;
 let page='landing',code='',publicEntry=false,assignment=null,answers={},step=0,busy=false,error='';
+let raffleConsent='',rafflePhone='';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const keyAttr=(id)=>esc(id);
 function render(){
@@ -67,6 +68,7 @@ function beginConsent(nextAssignment,inviteCode='',isPublic=false){
  publicEntry=isPublic;
  assignment=nextAssignment;
  answers={};
+ raffleConsent='';rafflePhone='';
  error='';
  page='consent';
  render();
@@ -83,16 +85,22 @@ function getRenderable(){const groups=getGroups(answers);step=Math.max(0,Math.mi
 function survey(){
  const {groups,current}=getRenderable(),percent=Math.round((step+1)/groups.length*100);
  root.innerHTML=`${demo?'<div class="test-watermark">체험 모드 — 실제 응답 저장 안 함</div>':''}<section class="panel"><span class="eyebrow">전국 수의대생 조사</span><div class="progress"><span style="width:${percent}%"></span></div><div class="progress-meta"><span>${step+1} / ${groups.length} 단계</span><span>${percent}%</span></div><h1>${esc(current.title)}</h1>${current.note?`<div class="notice">${esc(current.note)}</div>`:''}
- <div id="questions">${activeQuestions(current.key,answers).map(renderQuestion).join('')}</div>${alertErr()}
+ <div id="questions">${activeQuestions(current.key,answers).map(renderQuestion).join('')}</div>${current.key==='J'?renderRaffle():''}${alertErr()}
  <div class="buttons"><button id="back" class="btn outline">이전</button><button id="next" class="btn" ${busy?'disabled':''}>${step===groups.length-1?'설문 제출':'다음 단계'}</button></div><p class="help">개인별 조건은 최초 접속 시 고정됩니다. 이전 단계로 돌아가 응답을 수정할 수 있습니다.</p></section>`;
  document.querySelector('#back').onclick=()=>{if(step===0){page='consent'}else step--;error='';render();scrollTo({top:0,behavior:'instant'})};
  document.querySelector('#next').onclick=async()=>{const issues=validatePage(current.key,answers);if(issues.length){const {id,message}=issues[0];error=message;render();document.querySelector(`[data-question="${CSS.escape(id)}"]`)?.scrollIntoView({behavior:'smooth'});return;}error='';if(step<groups.length-1){step++;render();scrollTo({top:0,behavior:'instant'});return;}
  const all=validateAll(answers);if(all.length){error=`아직 응답하지 않은 문항이 있습니다: ${all.map(x=>x.id).slice(0,5).join(', ')}`;render();return;}
+ if(raffleConsent==='yes'&&!/^010\d{8}$/.test(rafflePhone.replace(/[\s-]/g,''))){error='휴대전화 번호를 010으로 시작하는 11자리로 입력해 주십시오.';render();return;}
  if(demo){page='finished';render();return;}
- try{setBusy(true);await api(pilotMode?'pilot_submit':publicEntry?'public_submit':'submit',{code:publicEntry?browserCode():code,consent:true,version:VERSION,answers:sanitizeAnswers(answers)});page='finished';code='';answers={};render();}catch(e){busy=false;error=e.message;render();}
+ try{setBusy(true);await api(pilotMode?'pilot_submit':publicEntry?'public_submit':'submit',{code:publicEntry?browserCode():code,consent:true,version:VERSION,answers:sanitizeAnswers(answers),...(raffleConsent==='yes'?{raffle:{consent:true,noticeVersion:'raffle-v1',phone:rafflePhone}}:{})});page='finished';code='';answers={};raffleConsent='';rafflePhone='';render();}catch(e){busy=false;error=e.message;render();}
  };
  root.querySelector('#questions').addEventListener('change',onChange);
  root.querySelector('#questions').addEventListener('input',e=>{if(e.target.matches('textarea,input[type=text]'))answers[e.target.dataset.id]=e.target.value;});
+ root.querySelectorAll('input[name=raffle-consent]').forEach(el=>el.onchange=()=>{raffleConsent=el.value;if(el.value!=='yes')rafflePhone='';render();});
+ const phone=root.querySelector('#raffle-phone');if(phone)phone.oninput=()=>{rafflePhone=phone.value;};
+}
+function renderRaffle(){
+ return `<div class="question"><h2>커피 쿠폰 추첨 참여 · 선택</h2><p>설문 응답자 중 추첨을 통해 대한수의사회에서 커피 쿠폰을 보내드립니다.</p><div class="notice"><strong>개인정보 수집·이용 안내</strong><p>수집·관리 기관: 대한수의사회<br>수집·이용 목적: 커피 쿠폰 추첨, 당첨 안내 및 쿠폰 발송<br>수집 항목: 휴대전화 번호<br><strong>보유·이용 기간: 쿠폰 발송 완료 후 즉시 파기</strong></p><p>동의를 거부할 수 있습니다. 동의하지 않으면 쿠폰 추첨 참여가 제한되며, 설문은 제출할 수 있습니다.</p><p>휴대전화 번호는 설문 응답과 별도 표에 보관하며 쿠폰 발송을 위한 관리자 목록에서 관리합니다.</p></div>${demo||pilotMode?'<p class="warning">시험 시 실제 연락처를 입력하지 마십시오.</p>':''}<div class="options single-column"><label class="option"><input type="radio" name="raffle-consent" value="yes" ${raffleConsent==='yes'?'checked':''}>개인정보 수집·이용에 동의하고 추첨에 참여합니다.</label><label class="option"><input type="radio" name="raffle-consent" value="no" ${raffleConsent==='no'?'checked':''}>추첨에 참여하지 않습니다.</label></div>${raffleConsent==='yes'?`<label for="raffle-phone">휴대전화 번호</label><input id="raffle-phone" class="field" type="tel" inputmode="tel" autocomplete="off" maxlength="13" placeholder="010-1234-5678" value="${esc(rafflePhone)}">`:''}<p class="help">선택하지 않고 제출하면 추첨에 참여하지 않습니다.</p></div>`;
 }
 function renderQuestion(q){const visibleID=q.id.replaceAll('_','-');let content='';
  if(q.type==='radio'||q.type==='modelchoice'){

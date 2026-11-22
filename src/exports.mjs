@@ -103,7 +103,8 @@ function normalizedPhone(value){
  return /^10\d{8}$/.test(digits)?'0'+digits:digits;
 }
 export function couponCsv(text){
- const data=parseCsv(text),counts=new Map();
+ const data=parseCsv(text).sort((a,b)=>Date.parse(a.consented_at)-Date.parse(b.consented_at));
+ const counts=new Map();
  for(const row of data){const phone=normalizedPhone(row.phone);counts.set(phone,(counts.get(phone)||0)+1);}
  return csv(['접수순번','휴대전화번호','수집이용동의','동의일시(한국시간)','동의문버전','수집관리기관','이용목적','파기시점','동일번호응모건수','번호확인'],data.map((r,i)=>{
   const phone=normalizedPhone(r.phone),valid=/^010\d{8}$/.test(phone);
